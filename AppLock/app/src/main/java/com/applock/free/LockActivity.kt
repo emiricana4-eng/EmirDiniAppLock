@@ -26,8 +26,11 @@ class LockActivity : AppCompatActivity() {
         prefManager = PrefManager(this)
         packageToUnlock = intent.getStringExtra(EXTRA_PACKAGE) ?: ""
 
+        // FIX: Fail-Closed Security
+        // If there is no PIN, we DO NOT unlock. We stop the app.
         if (!prefManager.hasPin()) {
-            grantAccess()
+            Toast.makeText(this, "Security Error: No PIN set. Access Denied.", Toast.LENGTH_LONG).show()
+            finish() 
             return
         }
 
@@ -69,92 +72,4 @@ class LockActivity : AppCompatActivity() {
 
     private fun appendDigit(digit: String) {
         if (enteredPin.length >= MAX_PIN_LENGTH) return
-        enteredPin += digit
-        updateDots()
-        
-        if (enteredPin.length >= prefManager.pinLength) {
-            checkPin()
-        }
-    }
-
-    private fun removeLastDigit() {
-        if (enteredPin.isNotEmpty()) {
-            enteredPin = enteredPin.dropLast(1)
-            updateDots()
-        }
-    }
-
-    private fun clearPin() {
-        enteredPin = ""
-        updateDots()
-    }
-
-    private fun updateDots() {
-        val total = prefManager.pinLength.coerceAtLeast(4)
-        val filled = enteredPin.length
-        binding.tvPinDots.text =
-            "●".repeat(filled) + "○".repeat((total - filled).coerceAtLeast(0))
-    }
-
-    private fun checkPin() {
-        if (enteredPin.length < prefManager.pinLength) return
-
-        if (prefManager.checkPin(enteredPin)) {
-            grantAccess()
-        } else {
-            onWrongPin()
-        }
-    }
-
-    private fun grantAccess() {
-        LockService.lastAuthenticatedPackage = packageToUnlock
-        LockService.authTimestamp = System.currentTimeMillis()
-
-        LockService.unlockedApps.add(packageToUnlock)
-        LockService.tempUnlocked.add(packageToUnlock)
-        LockService.appLeftAt.remove(packageToUnlock)
-
-        LockService.pollPausedUntil = System.currentTimeMillis() + 3000
-
-        finish()
-    }
-
-    private fun onWrongPin() {
-        val shake = AnimationUtils.loadAnimation(this, android.R.anim.cycle_interpolator)
-        binding.tvPinDots.startAnimation(shake)
-        
-        @Suppress("DEPRECATION")
-        (getSystemService(VIBRATOR_SERVICE) as? Vibrator)
-            ?.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
-            
-        Toast.makeText(this, "Wrong PIN", Toast.LENGTH_SHORT).show()
-        clearPin()
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        goHome()
-    }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME) {
-            goHome()
-            return true
-        }
-        return super.onKeyDown(keyCode, event)
-    }
-
-    private fun goHome() {
-        startActivity(
-            Intent(Intent.ACTION_MAIN).apply {
-                addCategory(Intent.CATEGORY_HOME)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            }
-        )
-    }
-
-    companion object {
-        const val EXTRA_PACKAGE = "pkg"
-        private const val MAX_PIN_LENGTH = 8
-    }
-}
+        entered
